@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <title>日付と曜日を出力</title>
+        <style>
+            table {
+                border-collapse:collapse;
+                margin-top: 30px;
+            }
+            th,td {
+                border:1px solid #ccc;
+                padding: 20px;
+            }
+            th {
+                text-align: left;
+                vertical-align: top;
+            }
+            td {
+                text-align: right;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="app"></div>
+        <script>
+
+            // 出力する年数を指定
+            const getYear = 2022;
+            // 会社の特別休暇日(年末年始やお盆)
+            const specialDays = ['01/03', '01/04', '08/12', '12/29', '12/30']
+            dayCreate(getYear)
+
+            /*
+                指定年の祝日を整形した配列で取得
+                getYear: 指定年数
+            */
+            async function getHoliday(getYear) {
+                // 休日の配列
+                let holidayArray = []
+                // 指定年数のみの整形配列
+                let resultArray = []
+                // 祝日(前後年数込み)のPromiseオブジェクトを取得
+                const res = await fetch('https://holidays-jp.github.io/api/v1/date.json')
+                // JSオブジェクトのみ取得
+                const data = await res.json()
+                // 指定年数のみを連想配列に変換 例：202X-01-10:"成人の日",...
+                Object.keys(data).map(key => {
+                    if (key.indexOf(getYear) !== -1) {
+                        holidayArray[key] = data[key]
+                    }
+                })
+                // 簡略に整形した連想配列に変換 例：01/10:"成人",...
+                for (let key in holidayArray) {
+                    let holidayDate = key.replace(/20\d{2}-/, '').replace(/-/, '/')
+                    let holidayName = holidayArray[key].slice(0, 2).replace(/の/, '') + (holidayArray[key].indexOf('振替') !== -1 ? '振替' : '')
+                    resultArray[holidayDate] = holidayName
+                }
+                return resultArray
+            }
+
+            /**
+             * 一年全体の日付を出力
+             * getYear: 指定年数
+             */
+            function dayCreate(getYear) {
+                const newDate = new Date(getYear + '-01-01')
+                // 指定年数のタイムスタンプ(ミリ秒)を取得 例:1640995200000
+                let timeStamp = newDate.getTime()
+                // 平日の曜日
+                const workDay = ['月', '火', '水', '木', '金']
+                // 祝日の連想配列を取得
+                const holidayArr = getHoliday(getYear)
+                // 最終的な出力結果
+                let totalDays = '';
+
+                holidayArr.then((array) => {
+                    // 1日ごとに整形された日付を出力
+                    for (let i = 1; i <= 365; i++) {
+                        // 1日分の文字列を取得
+                        let dayText = compileTS(timeStamp)
+                        // 曜日の前後を分割
+                        const beforeDay = dayText.slice(0, 7)
+                        const afterDay = dayText.slice(7)
+                        // 各祝日を1日ごとに取得
+                        for (let holiday in array) {
+                            // 祝日であれば
+                            if (holiday.indexOf(dayText.slice(0, 5)) !== -1) {
+                                // 分割した文字列の間に祝日名を挟む
+                                dayText = beforeDay + ':' + array[holiday] + afterDay
+                                // 祝日の水曜日であれば
+                                if (dayText.slice(6, 7) == '水') {
+                                    dayText = beforeDay + ':' + array[holiday] + ') 筋トレマラソン7時'
+                                }
+                            }
+                        }
+                        // 特別休暇であれば
+                        if (specialDays.indexOf(dayText.slice(0, 5)) !== -1) {
+                            // 水曜以外は何も付与しない
+                            if (dayText.slice(6, 7) == '水') {
+                                dayText = beforeDay + ') 筋トレマラソン7時<br>'
+                            } else {
+                                dayText += '<br>'
+                            }
+                        }
+                        // 祝日を除いた平日であれば
+                        else if (workDay.indexOf(dayText.slice(6, 7)) !== -1) {
+                            // 祝日であれば
+                            if (dayText.slice(0, 5) in array) {
+                                // 何もしない
+                                dayText += '<br>'
+                            }
+                            else if (dayText.slice(6, 7) == '水') {
+                                dayText += '<strong>EBA10時〜19時</strong> 筋トレマラソン7時<br>'
+                            } else {
+                                // 後ろに就業時間を追加
+                                dayText += '<strong>EBA10時〜19時</strong><br>'
+                            }
+                        }
+                        // 365日分を追加
+                        totalDays += dayText
+                        // 翌日を取得するために1日分のミリ秒を加算
+                        timeStamp += 86400000
+                    }
+
+                    // 出勤回数をカウント
+                    const wor_days = (totalDays.match(/EBA/g) || [] ).length
+                    const spe_days = specialDays.length
+                    const hol_days = Object.keys(array).length
+                    const end_days = (totalDays.match(/\(土\)|\(日\)/g) || []).length
+                    const total_weeks = (totalDays.match(/-<br>/g) || []).length + 1
+                    const total_days = wor_days + spe_days + hol_days + end_days
+                    console.log('出勤日：' + wor_days + '日')
+                    console.log('特別休暇日：' + spe_days + '日')
+                    for (let key in specialDays) {console.info(' ・' + specialDays[key])}
+                    console.log('祝日(元日を含む)：' + hol_days + '日')
+                    for (let key in array) {console.info(' ・' + key + ':' + array[key])}
+                    console.log('土日(祝日を除く)：' + end_days + '日')
+                    console.log('合計週：' + total_weeks + '週')
+                    console.log('合計日数：' + total_days + '日')
+                    const output = `
+                    <table>
+                    <tr><th>出勤日</th><td>${wor_days}日</td></tr>
+                    <tr><th>特別休暇日</th><td>${spe_days}日</td></tr>
+                    <tr><th>祝日(元日を含む)</th><td>${hol_days}日</td></tr>
+                    <tr><th>土日(祝日を除く)</th><td>${end_days}日</td></tr>
+                    <tr><th>合計週</th><td>${total_weeks}週</td></tr>
+                    <tr><th>合計日数</th><td>${total_days}日</td></tr>
+                    `
+
+                    // 1年分をまるごと出力
+                    document.getElementById('app').innerHTML = '<h4>[00' + (getYear - 2007) +  '] ' + getYear + '年[年間スケジュールor日報]</h4><p>■日報記録</p>' + totalDays + output
+
+                })
+            }
+
+            /**
+             * 1日ごとの整形文字列を返す
+             * ts: 1日分のタイムスタンプ(ミリ秒)
+             */
+            function compileTS(ts) {
+                // タイムスタンプを元に日付を取得 例:Sat Jan 01 2022 09:00:00
+                const dateObj = new Date(ts)
+                const weekDayList = ['日', '月', '火', '水', '木', '金', '土']
+                // 月と日は1桁の場合は0を手前に付与
+                const zeroPadding = number => ('0' + number).substr(-2)
+                const month = zeroPadding(dateObj.getMonth() + 1)
+                const date = zeroPadding(dateObj.getDate())
+                // 曜日を日本語に変換
+                const weekDay = weekDayList[dateObj.getDay()]
+                // 月と日
+                let monthDay = month + '/' + date
+                // 曜日と改行を追加
+                let result = monthDay + '(' + weekDay + ')'
+                // 日曜であれば区切り線を追加
+                if (weekDay === '日') {
+                    result += ' 筋トレマラソン9時<br>- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -<br>'
+                } else if (weekDay === '土') {
+                    result += '<br>'
+                }
+                return result
+            }
+
+        </script>
+    </body>
+</html>
