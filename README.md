@@ -11,19 +11,19 @@ Markdown is a lightweight and easy-to-use syntax for styling your writing. It in
 ```markdown
 Syntax highlighted code block
 
-# Header 1
-## Header 2
-### Header 3
+# mySceduleGenerator
 
-- Bulleted
-- List
+## Add RowData
 
-1. Numbered
-2. List
+- getYear = generate year
+- special holiday = your corporate holiday
 
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
+**examle** `
+const getYear = 2022;
+const specialDays = ['01/03', '01/04', '08/12', '12/29', '12/30']
+`
+## preview Sample
+[githubpages](https://arihito.github.io/mySceduleGenerator/)
 ```
 
 For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
